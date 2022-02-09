@@ -1,0 +1,9 @@
+[submodule "lib/big_int"]
+	path = lib/big_int
+	url = https://github.com/StiveMan1/big_int
+[submodule "lib/crypto_code"]
+    path = lib/crypto_code
+    url = https://github.com/StiveMan1/crypto_code
+[submodule "lib/hash_code"]
+    path = lib/hash_code
+    url = https://github.com/StiveMan1/hash_code
