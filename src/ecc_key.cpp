@@ -3,6 +3,349 @@
 
 using namespace ecc;
 
+#ifndef gmp
+
+key::key() {
+    this->p = new ecc::point();
+    this->curve = new ecc::curve();
+    this->isPrivate = 0;
+    this->d = (bi_pt) malloc(sizeof(bi_t));
+    bi_init(this->d);
+}
+
+key::~key() {
+    delete this->p;
+    delete this->curve;
+    bi_clear(this->d);
+}
+
+key::key(const key &a) {
+    this->p = new ecc::point(a.p);
+    this->curve = new ecc::curve(a.curve);
+    this->isPrivate = a.isPrivate;
+    this->d = (bi_pt) malloc(sizeof(bi_t));
+    bi_init_set(this->d, a.d);
+}
+
+key::key(const key *a) {
+    this->p = new ecc::point(a->p);
+    this->curve = new ecc::curve(a->curve);
+    this->isPrivate = a->isPrivate;
+    this->d = (bi_pt) malloc(sizeof(bi_t));
+    bi_init_set(this->d, a->d);
+}
+
+void key::copy(const key &a) {
+    this->p->copy(a.p);
+    this->curve->copy(a.curve);
+    this->isPrivate = a.isPrivate;
+    if (this->isPrivate) {
+        bi_set(this->d, a.d);
+    }
+}
+
+void key::copy(const key *a) {
+    this->p->copy(a->p);
+    this->curve->copy(a->curve);
+    this->isPrivate = a->isPrivate;
+    if (this->isPrivate) {
+        bi_set(this->d, a->d);
+    }
+}
+
+ecc::key key::from_address(const std::string &str, const ecc::curve &curve) {
+    ecc::key key;
+    key.p->set_from_string(str, curve);
+    key.curve->copy(curve);
+    key.isPrivate = 0;
+    return key;
+}
+
+ecc::key key::from_address(const std::string &str, const ecc::curve *curve) {
+    ecc::key key;
+    key.p->set_from_string(str, curve);
+    key.curve->copy(curve);
+    key.isPrivate = 0;
+    return key;
+}
+
+ecc::key key::from_private_key(const std::string &str, const ecc::curve &curve) {
+    if (str[0] != '1') {
+        throw IncorrectKey();
+    }
+    ecc::key key;
+    std::string tmp_str = str.substr(1);
+    bi_set_str_16(key.d, tmp_str.c_str(), tmp_str.size());
+    key.curve->copy(curve);
+    key.curve->scalar_multiplication(key.p, key.d);
+    key.isPrivate = 1;
+    return key;
+}
+
+ecc::key key::from_private_key(const std::string &str, const ecc::curve *curve) {
+    if (str[0] != '1') {
+        throw IncorrectKey();
+    }
+    ecc::key key;
+    std::string tmp_str = str.substr(1);
+    bi_set_str_16(key.d, tmp_str.c_str(), tmp_str.size());
+    key.curve->copy(curve);
+    key.curve->scalar_multiplication(key.p, key.d);
+    key.isPrivate = 1;
+    return key;
+}
+
+void key::set_public(const point &_p, const ecc::curve &_curve) {
+    this->p->copy(_p);
+    this->curve->copy(_curve);
+    this->isPrivate = 0;
+}
+
+void key::set_public(const point *_p, const ecc::curve *_curve) {
+    this->p->copy(_p);
+    this->curve->copy(_curve);
+    this->isPrivate = 0;
+}
+
+void key::set_private(const std::string &_d, const ecc::curve &_curve) {
+    bi_set_str_16(this->d, _d.c_str(), _d.size());
+    this->curve->copy(_curve);
+    this->curve->scalar_multiplication(this->p, this->d);
+    this->isPrivate = 1;
+}
+
+void key::set_private(const std::string &_d, const ecc::curve *_curve) {
+    bi_set_str_16(this->d, _d.c_str(), _d.size());
+    this->curve->copy(_curve);
+    this->curve->scalar_multiplication(this->p, this->d);
+    this->isPrivate = 1;
+}
+
+
+std::string key::get_address() const {
+    return this->p->to_string();
+}
+
+std::string key::get_private_key() const {
+    if (!this->isPrivate) throw NotPrivateKey();
+    std::string result = bi_str_get_16(this->d);
+    return "1" + result;
+}
+
+std::string key::encode_self(const std::string &str, int hash_type, int crypto_type) const {
+    if (!this->isPrivate) throw NotPrivateKey();
+    ecc::point point;
+    this->curve->scalar_multiplication_point(&point, this->p, this->d);
+    std::string result = crypto::encode(str, hash::code(point.to_string(), hash_type), crypto_type);
+    result = ecc::base64_encode(result);
+    return result;
+}
+
+std::string key::decode_self(const std::string &str, int hash_type, int crypto_type) const {
+    if (!this->isPrivate) throw NotPrivateKey();
+    ecc::point point;
+    this->curve->scalar_multiplication_point(&point, this->p, this->d);
+    std::string result = ecc::base64_decode(str);
+    result = crypto::decode(result, hash::code(point.to_string(), hash_type), crypto_type);
+    return result;
+}
+
+std::string key::encode(const std::string &str, int hash_type, int crypto_type, const ecc::key *key) const {
+    ecc::point point;
+    this->curve->scalar_multiplication_point(&point, this->p, key->d);
+    std::string result = crypto::encode(str, hash::code(point.to_string(), hash_type), crypto_type);
+    result = ecc::base64_encode(result);
+    return result;
+}
+
+std::string key::encode(const std::string &str, int hash_type, int crypto_type, const ecc::key &key) const {
+    ecc::point point;
+    this->curve->scalar_multiplication_point(&point, this->p, key.d);
+    std::string result = crypto::encode(str, hash::code(point.to_string(), hash_type), crypto_type);
+    result = ecc::base64_encode(result);
+    return result;
+}
+
+std::string key::decode(const std::string &str, int hash_type, int crypto_type, const ecc::key *key) const {
+    if (!this->isPrivate) throw NotPrivateKey();
+    ecc::point point;
+    this->curve->scalar_multiplication_point(&point, key->p, this->d);
+    std::string result = ecc::base64_decode(str);
+    result = crypto::decode(result, hash::code(point.to_string(), hash_type), crypto_type);
+    return result;
+}
+
+std::string key::decode(const std::string &str, int hash_type, int crypto_type, const ecc::key &key) const {
+    if (!this->isPrivate) throw NotPrivateKey();
+    ecc::point point;
+    this->curve->scalar_multiplication_point(&point, key.p, this->d);
+    std::string result = ecc::base64_decode(str);
+    result = crypto::decode(result, hash::code(point.to_string(), hash_type), crypto_type);
+    return result;
+}
+
+key key::generate_key(const std::string &password, const ecc::curve &curve) {
+    ecc::key key;
+    key.curve->copy(curve);
+    key.isPrivate = 1;
+    {
+        auto *rand = new random_by_password(password);
+        unsigned _size = (unsigned) (bi_str_get_16(key.curve->n).size()) / 2;
+        while (true) {
+            rand->random_rand(key.d, _size);
+            bi_mod(key.d, key.d, key.curve->n);
+            key.curve->scalar_multiplication(key.p, key.d);
+            if (bi_cmp_ui(key.p->x, 0) != 0 && bi_cmp_ui(key.d, 0) != 0) break;
+        }
+    }
+    return key;
+}
+
+key key::generate_key(const std::string &password, const ecc::curve *curve) {
+    ecc::key key;
+    key.curve->copy(curve);
+    key.isPrivate = 1;
+    {
+        auto *rand = new random_by_password(password);
+        unsigned _size = (unsigned) (bi_str_get_16(key.curve->n).size()) / 2;
+        while (true) {
+            rand->random_rand(key.d, _size);
+            bi_mod(key.d, key.d, key.curve->n);
+            key.curve->scalar_multiplication(key.p, key.d);
+            if (bi_cmp_ui(key.p->x, 0) != 0 && bi_cmp_ui(key.d, 0) != 0) break;
+        }
+    }
+    return key;
+}
+
+ecc::key key::generate_key(const ecc::curve &curve) {
+    ecc::key key;
+    key.curve->copy(curve);
+    key.isPrivate = 1;
+    while (true) {
+        bi_random(key.d, key.curve->n->size);
+        bi_mod(key.d, key.d, key.curve->n);
+        key.curve->scalar_multiplication(key.p, key.d);
+        if (bi_cmp_ui(key.p->x, 0) != 0 && bi_cmp_ui(key.d, 0) != 0) break;
+    }
+    return key;
+}
+
+ecc::key key::generate_key(const ecc::curve *curve) {
+    ecc::key key;
+    key.curve->copy(curve);
+    key.isPrivate = 1;
+    while (true) {
+        bi_random(key.d, key.curve->n->size);
+        bi_mod(key.d, key.d, key.curve->n);
+        key.curve->scalar_multiplication(key.p, key.d);
+        if (bi_cmp_ui(key.p->x, 0) != 0 && bi_cmp_ui(key.d, 0) != 0) break;
+    }
+    return key;
+}
+
+signature key::signature_create(const bi_pt hash) const {
+    if (!this->isPrivate) throw NotPrivateKey();
+    bi_pt k = (bi_pt) malloc(sizeof(bi_t));
+    bi_pt s = (bi_pt) malloc(sizeof(bi_t));
+    bi_pt r = (bi_pt) malloc(sizeof(bi_t));
+    bi_pt temp = (bi_pt) malloc(sizeof(bi_t));
+    bi_inits(k, s, r, temp, NULL);;
+
+    ecc::point R;
+    do {
+        do {
+            bi_random(k, this->curve->n->size);
+        } while (bi_cmp_ui(k, 0) == 0 || bi_cmp(this->d, k) == 0);
+        this->curve->scalar_multiplication(&R, k);
+
+        bi_inverse(s, k, this->curve->n);
+        bi_mul(temp, R.x, this->d);
+        bi_add(temp, temp, hash);
+        bi_mul(s, s, temp);
+        bi_mod(s, s, this->curve->n);
+
+    } while (bi_cmp_ui(s, 0) == 0);
+
+    bi_set(r, R.x);
+
+    signature res = signature(r, s);
+    bi_inits(k, s, r, temp, NULL);
+    return res;
+}
+
+signature key::signature_create(const std::string &hash) const {
+    bi_pt temp = (bi_pt) malloc(sizeof(bi_t));
+    bi_init(temp);
+    bi_set_str_16(temp, hash.c_str(), hash.size());
+    signature result = this->signature_create(temp);
+    bi_clear(temp);
+    return result;
+}
+
+bool key::signature_check(const signature &sign, const bi_pt hash) const {
+    bi_pt s1 = (bi_pt) malloc(sizeof(bi_t));
+    bi_pt temp1 = (bi_pt) malloc(sizeof(bi_t));
+    bi_pt temp2 = (bi_pt) malloc(sizeof(bi_t));
+    bi_inits(s1, temp1, temp2, NULL);
+    bi_inverse(s1, sign.s, this->curve->n);
+    bi_mul(temp1, hash, s1);
+    bi_mul(temp2, sign.r, s1);
+
+    ecc::point _point1;
+    ecc::point _point2;
+
+    this->curve->scalar_multiplication(&_point1, temp1);
+    this->curve->scalar_multiplication_point(&_point2, this->p, temp2);
+    this->curve->point_addition(&_point1, &_point1, &_point2);
+
+    bool result = (bi_cmp(_point1.x, sign.r) == 0);
+
+    bi_clears(s1, temp1, temp2, NULL);
+    return result;
+}
+
+bool key::signature_check(const signature *sign, const bi_pt hash) const {
+    bi_pt s1 = (bi_pt) malloc(sizeof(bi_t));
+    bi_pt temp1 = (bi_pt) malloc(sizeof(bi_t));
+    bi_pt temp2 = (bi_pt) malloc(sizeof(bi_t));
+    bi_inits(s1, temp1, temp2, NULL);
+    bi_inverse(s1, sign->s, this->curve->n);
+    bi_mul(temp1, hash, s1);
+    bi_mul(temp2, sign->r, s1);
+
+    ecc::point _point1;
+    ecc::point _point2;
+
+    this->curve->scalar_multiplication(&_point1, temp1);
+    this->curve->scalar_multiplication_point(&_point2, this->p, temp2);
+    this->curve->point_addition(&_point1, &_point1, &_point2);
+
+    bool result = (bi_cmp(_point1.x, sign->r) == 0);
+
+    bi_clears(s1, temp1, temp2, NULL);
+    return result;
+}
+
+bool key::signature_check(const signature &sign, const std::string &hash) const {
+    bi_pt temp = (bi_pt) malloc(sizeof(bi_t));
+    bi_init(temp);
+    bi_set_str_16(temp, hash.c_str(), hash.size());
+    bool result = this->signature_check(sign, temp);
+    bi_clear(temp);
+    return result;
+}
+
+bool key::signature_check(const signature *sign, const std::string &hash) const {
+    bi_pt temp = (bi_pt) malloc(sizeof(bi_t));
+    bi_init(temp);
+    bi_set_str_16(temp, hash.c_str(), hash.size());
+    bool result = this->signature_check(sign, temp);
+    bi_clear(temp);
+    return result;
+}
+
+#else
 
 key::key() {
     this->p = new ecc::point();
@@ -69,6 +412,11 @@ ecc::key key::from_private_key(const std::string &str, const ecc::curve &curve) 
     if (str[0] != '1') {
         throw IncorrectKey();
     }
+    for(char i : str){
+        if((i < '0' || i > '9') && (i < 'a' || i > 'z') && (i < 'A' || i > 'Z')){
+            throw IncorrectPoint();
+        }
+    }
     ecc::key key;
     mpz_set_str(key.d, str.substr(1).c_str(), 16);
     key.curve->copy(curve);
@@ -80,6 +428,11 @@ ecc::key key::from_private_key(const std::string &str, const ecc::curve &curve) 
 ecc::key key::from_private_key(const std::string &str, const ecc::curve *curve) {
     if (str[0] != '1') {
         throw IncorrectKey();
+    }
+    for(char i : str){
+        if((i < '0' || i > '9') && (i < 'a' || i > 'z') && (i < 'A' || i > 'Z')){
+            throw IncorrectPoint();
+        }
     }
     ecc::key key;
     mpz_set_str(key.d, str.substr(1).c_str(), 16);
@@ -347,3 +700,5 @@ bool key::signature_check(const signature *sign, const std::string &hash) const 
     mpz_clear(temp);
     return result;
 }
+
+#endif

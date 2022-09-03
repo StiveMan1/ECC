@@ -8,7 +8,6 @@ include(FindGMP)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lpthread")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lboost_thread")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lgmp")
 
 set(CMAKE_C_STANDARD 99)
@@ -32,6 +31,11 @@ if (NOT TARGET nlohmann_json)
     link_directories(lib/json)
     MESSAGE(STATUS "Connected: nlohmann_json")
 endif ()
+if (NOT TARGET big_int)
+    add_subdirectory(lib/big_int)
+    link_directories(lib/big_int)
+    MESSAGE(STATUS "Connected: big_int")
+endif ()
 
 include(GNUInstallDirs)
 add_library(${PROJECT_NAME} ${SOURCE_FILES})
@@ -44,7 +48,10 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
         SOVERSION 1)
 
 install(DIRECTORY include DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME})
+
+add_definitions(-Dgmp=1)
 target_link_libraries(${PROJECT_NAME} PUBLIC gmp gmpxx)
+target_link_libraries(${PROJECT_NAME} PUBLIC big_int)
 target_link_libraries(${PROJECT_NAME} PUBLIC crypto_code)
 target_link_libraries(${PROJECT_NAME} PUBLIC hash_code)
 target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json)

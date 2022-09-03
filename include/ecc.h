@@ -1,13 +1,282 @@
 #ifndef ECC_H
 #define ECC_H
 
+#ifdef big_int
+#include "big_int.h"
+#elif defined(gmp)
 #include "gmp.h"
+#endif
 #include <hash_code.h>
 #include <crypto_code.h>
 #include <string>
 #include <cstring>
 #include <malloc.h>
 
+//#ifndef GMP_FOUND
+//extern "C" {
+#include "big_int.h"
+//}
+//
+//namespace ecc {
+//
+//    class EccException : public std::exception {
+//    };
+//
+//    class NotPrivateKey : public EccException {
+//    };
+//
+//    class IncorrectPoint : public EccException {
+//    };
+//
+//    class IncorrectKey : public EccException {
+//    };
+//
+//    class IncorrectJson : public EccException {
+//    };
+//
+//
+//    std::string base64_decode(std::string const &s);
+//
+//    std::string base64_encode(std::string const &s);
+//
+//    class point;
+//
+//    class curve;
+//
+//    class random_by_password;
+//
+//    class signature;
+//
+//    class key;
+//
+//
+//    std::string bi_str_get_16(const bi_pt rop);
+//
+//    class point {
+//    private:
+//
+//        bi_pt x{};
+//        bi_pt y{};
+//
+//        friend class ecc::curve;
+//
+//        friend class ecc::key;
+//
+//    public:
+//        point();
+//
+//        ~point();
+//
+//        point(const ecc::point &a);
+//
+//        point(const bi_pt x, const bi_pt y);
+//
+//        explicit point(const ecc::point *a);
+//
+//        void copy(const ecc::point *a);
+//
+//        void copy(const ecc::point &a);
+//
+//        void set(const bi_pt x, const bi_pt y);
+//
+//        static ecc::point from_string(const std::string &str, const ecc::curve &_curve);
+//
+//        static ecc::point from_string(const std::string &str, const ecc::curve *_curve);
+//
+//        void set_from_string(const std::string &str, const ecc::curve &_curve);
+//
+//        void set_from_string(const std::string &str, const ecc::curve *_curve);
+//
+//        std::string to_string() const;
+//
+//    };
+//
+//    class curve {
+//    private:
+//        ecc::point *g;
+//        unsigned h;
+//        bi_pt a{};
+//        bi_pt b{};
+//        bi_pt n{};
+//        bi_pt p{};
+//
+//        friend class ecc::point;
+//
+//        friend class ecc::key;
+//
+//    public:
+//        ecc::point get_g() const { return point(this->g); }
+//
+//        unsigned get_h() const { return this->h; }
+//
+//        curve();
+//
+//        ~curve();
+//
+//        curve(const bi_pt a, const bi_pt b, const bi_pt p, const bi_pt n, int h, const ecc::point &G);
+//
+//        curve(const ecc::curve &a);
+//
+//        explicit curve(const ecc::curve *a);
+//
+//        void copy(const ecc::curve &a);
+//
+//        void copy(const ecc::curve *a);
+//
+//        void set(const bi_pt a, const bi_pt b, const bi_pt p, const bi_pt n, int h, const ecc::point &G);
+//
+//        void set_secp256k1();
+//
+//        static ecc::curve secp256k1();
+//
+//        std::string to_json() const;
+//
+//        static ecc::curve from_json(const std::string &str);
+//
+//        void set_from_json(const std::string &str);
+//
+//
+//        void point_doubling(ecc::point *res, const ecc::point &P);
+//
+//        void point_doubling(ecc::point *res, const ecc::point *P);
+//
+//        void point_addition(ecc::point *res, const ecc::point &P, const ecc::point &Q);
+//
+//        void point_addition(ecc::point *res, const ecc::point *P, const ecc::point *Q);
+//
+//        void scalar_multiplication_point(ecc::point *res, const ecc::point &P, const bi_pt m);
+//
+//        void scalar_multiplication_point(ecc::point *res, const ecc::point *P, const bi_pt m);
+//
+//        void scalar_multiplication(ecc::point *res, const bi_pt m);
+//
+//    };
+//
+//    class random_by_password {
+//    private:
+//        int counter;
+//        std::string master_key;
+//    public:
+//        explicit random_by_password(const std::string &password);
+//
+//        ~random_by_password();
+//
+//        void random_rand(bi_pt result, unsigned n);
+//    };
+//
+//    class signature {
+//    private:
+//        bi_pt s{};
+//        bi_pt r{};
+//
+//        friend class ecc::key;
+//
+//    public:
+//
+//        signature();
+//
+//        signature(const bi_pt r, const bi_pt s);
+//
+//        signature(const ecc::signature &a);
+//
+//        explicit signature(const ecc::signature *a);
+//
+//        ~signature();
+//
+//        void copy(const ecc::signature &a);
+//
+//        void copy(const ecc::signature *a);
+//
+//        void set(const bi_pt r, const bi_pt s);
+//
+//        std::string to_json() const;
+//
+//        static ecc::signature from_json(const std::string &str);
+//
+//        void set_from_json(const std::string &str);
+//    };
+//
+//    class key {
+//    private:
+//        ecc::point *p;
+//        ecc::curve *curve;
+//        char isPrivate;
+//        bi_pt d{};
+//    public:
+//        ecc::point get_p() const { return ecc::point(p); }
+//
+//        ecc::curve get_curve() const { return ecc::curve(curve); }
+//
+//        key();
+//
+//        ~key();
+//
+//        key(const key &a);
+//
+//        explicit key(const key *a);
+//
+//
+//        void copy(const key &a);
+//
+//        void copy(const key *a);
+//
+//        static key from_address(const std::string &str, const ecc::curve &curve);
+//
+//        static key from_address(const std::string &str, const ecc::curve *curve);
+//
+//        static key from_private_key(const std::string &str, const ecc::curve &curve);
+//
+//        static key from_private_key(const std::string &str, const ecc::curve *curve);
+//
+//        void set_public(const ecc::point &p, const ecc::curve &curve);
+//
+//        void set_public(const ecc::point *p, const ecc::curve *curve);
+//
+//        void set_private(const std::string &d, const ecc::curve &curve);
+//
+//        void set_private(const std::string &d, const ecc::curve *curve);
+//
+//        std::string get_address() const;
+//
+//        std::string get_private_key() const;
+//
+//        std::string
+//        encode_self(const std::string &str, int hash_type, int crypto_type) const;
+//
+//        std::string
+//        decode_self(const std::string &str, int hash_type, int crypto_type) const;
+//
+//        std::string encode(const std::string &str, int hash_type, int crypto_type, const ecc::key *key) const;
+//
+//        std::string encode(const std::string &str, int hash_type, int crypto_type, const ecc::key &key) const;
+//
+//        std::string decode(const std::string &str, int hash_type, int crypto_type, const ecc::key *key) const;
+//
+//        std::string decode(const std::string &str, int hash_type, int crypto_type, const ecc::key &key) const;
+//
+//        static key generate_key(const std::string &password, const ecc::curve &_curve);
+//
+//        static key generate_key(const std::string &password, const ecc::curve *_curve);
+//
+//        static key generate_key(const ecc::curve &_curve);
+//
+//        static key generate_key(const ecc::curve *_curve);
+//
+//        ecc::signature signature_create(const bi_pt hash) const;
+//
+//        ecc::signature signature_create(const std::string &hash) const;
+//
+//        bool signature_check(const ecc::signature &sign, const bi_pt hash) const;
+//
+//        bool signature_check(const ecc::signature *sign, const bi_pt hash) const;
+//
+//        bool signature_check(const ecc::signature &sign, const std::string &hash) const;
+//
+//        bool signature_check(const ecc::signature *sign, const std::string &hash) const;
+//    };
+//}
+//#else
+#include "gmp.h"
 namespace ecc {
 
     class EccException : public std::exception {
@@ -46,6 +315,7 @@ namespace ecc {
 
     class point {
     private:
+
         mpz_t x{};
         mpz_t y{};
 
@@ -266,5 +536,6 @@ namespace ecc {
         bool signature_check(const ecc::signature *sign, const std::string &hash) const;
     };
 }
+//#endif
 
 #endif //ECC_H
